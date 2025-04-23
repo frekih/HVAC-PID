@@ -33,11 +33,8 @@ class PIDController:
 
     # Initialize PID controller
 setpoint_in = 1050  # Desired airflow in
-setpoint_out = 800 # Desired airflow out
+setpoint_out = 1250 # Desired airflow out
 setpoint_safe = 800 # Desired airflow safety cabinet
-pid_in = PIDController(Kp=0.1, Ki=3.5, Kd=0.008, setpoint=setpoint_in)
-pid_out = PIDController(Kp=0.3, Ki=5.0, Kd=0.005, setpoint=setpoint_out)
-pid_safe = PIDController(Kp=0.5, Ki=7.5, Kd=0.1, setpoint=setpoint_safe)
 
 # Simulation parameters for outflow
 time = np.linspace(0, 10, 1000)
@@ -56,6 +53,9 @@ process_values_safe = []
 process_flow = 0
 total_flow = []
 
+pid_in = PIDController(Kp=0.1, Ki=3.5, Kd=0.008, setpoint=setpoint_in)
+pid_out = PIDController(Kp=0.3, Ki=5.0, Kd=0.005, setpoint=setpoint_out)
+pid_safe = PIDController(Kp=0.5, Ki=7.5, Kd=0.1, setpoint=setpoint_safe)
 
 # Simulate the process
 for t in time:
@@ -76,12 +76,14 @@ for t in time:
 
 
 # Plot results
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(16, 10))
 plt.plot(time, process_values_out, label='Process Variable, outflow (Airflow [m3/h])')
 plt.plot(time, process_values_in, label='Process Variable, inflow (Airflow [m3/h])')
 plt.plot(time, process_values_safe, label='Process Variable, safety cabinet (Airflow [m3/h])')
 plt.plot(time, total_flow, label='Total flow (Airflow [m3/h])')
-plt.axhline(y=setpoint_safe, color='r', linestyle='--', label='Setpoint')
+plt.axhline(y=setpoint_safe, color='r', linestyle='--', label='Setpoint safety cabinet')
+plt.axhline(y=setpoint_in, color='b', linestyle='--', label='Setpoint intake')
+plt.axhline(y=setpoint_out, color='y', linestyle='--', label='Setpoint extract')
 plt.xlabel('Time (s)')
 plt.ylabel('Airflow [m3/h]')
 plt.title('PID Controller Simulation')
