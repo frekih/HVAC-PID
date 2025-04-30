@@ -70,20 +70,14 @@ process_values_safe = []
 process_variable_in = process_variable_out + process_variable_safe  # Initial intake airflow
 process_values_in = []
 
-pid_in = PIDController(Kp=0.7, Ki=5.5, Kd=0.6, setpoint=setpoint_in)
-pid_out = PIDController(Kp=0.6, Ki=4.5, Kd=0.65, setpoint=setpoint_out)
-pid_safe = PIDController(Kp=0.1, Ki=6.5, Kd=0.8, setpoint=setpoint_safe)
+pid_in = PIDController(Kp=0.7, Ki=3.5, Kd=0.85, setpoint=setpoint_in)
+pid_out = PIDController(Kp=0.6, Ki=1.5, Kd=0.75, setpoint=setpoint_out)
+pid_safe = PIDController(Kp=0.7, Ki=2.0, Kd=0.88, setpoint=setpoint_safe)
 
 # %% Simulate the process
 for t in range(0,N_sim):
     
     t_k = t * dt
-    
-    # Selecting inputs:
-    if (t_k <= t_start and t_k < t0):
-        y_safe[t] = 200
-    elif (t_k >= t0):
-        y_safe[t] = 850
 
     # Moving array elements one step:
     # process_variable_in_in = delay_array[-1]
@@ -91,7 +85,7 @@ for t in range(0,N_sim):
     # delay_array[0] = process_variable_safe
 
     control_output_safe = pid_safe.compute(process_variable_safe, dt)
-    process_variable_safe += control_output_safe * dt - 0.01 * process_variable_safe * dt * t
+    process_variable_safe += control_output_safe * dt - 0.001 * process_variable_safe * dt * t
     process_values_safe.append(process_variable_safe)
     
     control_output_in = pid_in.compute(process_variable_in, dt)
@@ -109,16 +103,24 @@ for t in range(0,N_sim):
     y_safe[t] = process_values_safe[t]
 
 # %% Plot results
-plt.figure(figsize=(16, 10))
-plt.plot(t_array, y_out, label='Process Variable, extract (Airflow [m3/h])')
-plt.plot(t_array, y_in, label='Process Variable, inflow (Airflow [m3/h])')
-plt.plot(t_array, y_safe, label='Process Variable, safety cabinet (Airflow [m3/h])')
-plt.plot(t_array, p_ref_array, label='Reference pressure')
-plt.axhline(y=setpoint_safe, color='r', linestyle='--', label='Setpoint safety cabinet')
-plt.axhline(y=setpoint_in, color='b', linestyle='--', label='Setpoint inflow')
-plt.axhline(y=setpoint_out, color='y', linestyle='--', label='Setpoint extract')
-plt.xlabel('Time (s)')
-plt.ylabel('Airflow [m3/h]')
+fig, ax1 = plt.subplots()
+ax1.set_xlabel('Time [s]')
+ax1.set_ylabel('Airflow [m3/h]', color='black')
+
+plot_1 = ax1.plot(t_array, y_out, label='Process Variable, extract (Airflow [m3/h])')
+plot_1 = ax1.plot(t_array, y_in, label='Process Variable, inflow (Airflow [m3/h])')
+plot_1 = ax1.plot(t_array, y_safe, label='Process Variable, safety cabinet (Airflow [m3/h])')
+ax1.tick_params(axis ='y', labelcolor = 'black')
+
+ax2 = ax1.twinx()
+ax2.set_ylabel('Pressure [Pa]', color='green')
+plot_4 = ax2.plot(t_array, p_ref_array, label='Reference pressure')
+ax2.tick_params(axis ='y', labelcolor = 'green')
+
+plot_3 = ax1.plot(setpoint_safe, color='r', linestyle='--', label='Setpoint safety cabinet')
+plot_3 = ax1.plot(setpoint_in, color='b', linestyle='--', label='Setpoint inflow')
+plot_3 = ax1.plot(setpoint_out, color='y', linestyle='--', label='Setpoint extract')
+
 plt.title('PID Controller Simulation')
 plt.legend()
 plt.grid()
