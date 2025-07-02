@@ -76,6 +76,7 @@ class PIDController:
             return output
 
 # %% Initialize PID controller
+
 setpoint_in = 1050                                                             # Desired airflow in
 setpoint_out = 850                                                             # Desired airflow out
 setpoint_safe = 200                                                            # Desired airflow safety cabinet, min. airflow
@@ -94,6 +95,7 @@ V = 54                                                                         #
 n_P = 0.5                                                                      # [-] pressure exponent
 
 # %% Pressure constants
+
 P_0 = 101.325
 P_supply = 101.425
 P_exhaust = 101.225
@@ -101,15 +103,18 @@ P_infiltration = 101.500
 P_room = 101.300
 
 # %% Resistance parameters
+
 C_supply = 0.7
 C_exhaust = 0.7
 C_infiltration = 0.7
 
 # %% Air flow resistance vs. damper stroke parameters
+
 X_supply = 0.7
 X_exhaust = 0.7
 
 # %% Room pressure calculations
+
 def room_P():
 
     P_dot_room = P_0 / V * (P_supply + P_infiltration - P_exhaust)
@@ -132,47 +137,53 @@ Nf = int(round(Tf/dt)) + 1
 delay_array = np.zeros(Nf) + t0
 
 # %% Simulation parameters for airflow
-process_variable_out = 850                                                     # Initial exhaust airflow
+
 process_values_out = []
 
-process_variable_safe = 950                                                    # Initial safety cabinet airflow
 process_values_safe = []
 
-process_variable_in = process_variable_out + process_variable_safe             # Initial supply airflow
 process_values_in = []
 
-pressure_variable = 50
+pressure_variable = 101325
 pressure_value = []
 
 pid_in = PIDController(Kp=0.9, Ki=1.3, Kd=0.7, setpoint=setpoint_in)           # PID settings, supply air
 pid_out = PIDController(Kp=0.9, Ki=1.2, Kd=0.75, setpoint=setpoint_out)        # PID settings, exhaust air
-pid_safe = PIDController(Kp=0.5, Ki=2.0, Kd=0.5, setpoint=setpoint_safe)       # PID settings, safety cabinet
+pid_safe = PIDController(Kp=1.1, Ki=0.4, Kd=0.9, setpoint=setpoint_safe)       # PID settings, safety cabinet
 
 # %% Simulate the process
+
 for t in range(0,N_sim):
     
     t_k = t * dt       
-
-    # Moving array elements one step:
-    # setpoint_safe_high = delay_array[-1]
-    # delay_array[1:] = delay_array[0:-1]
-    # delay_array[0] = setpoint_safe
-
+    
+    if t_k < 1:
+    
+        process_variable_safe = 200
+        setpoint_safe = 200
+    
+    else:
+        
+        process_variable_safe = 950
+        setpoint_safe = 950
+    
     control_output_safe = pid_safe.compute_safe(process_variable_safe, dt)
     process_variable_safe += control_output_safe * dt - 0.01 * process_variable_safe * t_k
     process_values_safe.append(process_variable_safe)
-    
-    control_output_in = pid_in.compute_in(process_variable_in, dt)
-    process_variable_in += control_output_in * dt - 0.01 * process_variable_in * t_k
-    process_values_in.append(process_variable_in + process_variable_safe)
 
+    process_variable_out = 850                                                     # Initial exhaust airflow
     control_output_out = pid_out.compute_out(process_variable_out, dt)
     process_variable_out += control_output_out * dt - 0.01 * process_variable_out * t_k
     process_values_out.append(process_variable_out + process_variable_safe)
-        
-    P_supply = (setpoint_in / (C_supply * X_supply))**(1/n_P) + P_room
-    P_exhaust = P_room - (setpoint_out + setpoint_safe / (C_exhaust * X_exhaust))**(1/n_P)
-    P_infiltration = (setpoint_safe / (C_infiltration))**(1/n_P) + P_room
+      
+    process_variable_in = process_variable_out + process_variable_safe             # Initial supply airflow
+    control_output_in = pid_in.compute_in(process_variable_in, dt)
+    process_variable_in += control_output_in * dt - 0.01 * process_variable_in * t_k
+    process_values_in.append(process_variable_in + process_variable_safe)
+    
+    P_supply = (process_variable_in / (C_supply * X_supply))**(1/n_P) + P_room
+    P_exhaust = P_room - (process_variable_out + setpoint_safe / (C_exhaust * X_exhaust))**(1/n_P)
+    P_infiltration = (process_variable_safe / (C_infiltration))**(1/n_P) + P_room
    
     P_room = P_0 / V * (P_supply + P_infiltration - P_exhaust)
     
@@ -188,7 +199,8 @@ for t in range(0,N_sim):
     y_safe_ref[t] = setpoint_safe
 
 # %% Plot results
-fig, ax1 = plt.subplots(figsize = (16, 10))
+
+fig, ax1 = plt.subplots(figsize = (16, 13))
 ax1.set_xlabel('Time [s]')
 ax1.set_ylabel('Airflow [m3/h]', color='blue')
 
