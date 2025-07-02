@@ -9,8 +9,8 @@ class PIDController:
         self.Ki = Ki
         self.Kd = Kd
         self.setpoint = setpoint
-        self.previous_error = 45
-        self.integral = 15
+        self.previous_error = 75
+        self.integral = 50
 
     def compute_safe(self, process_variable_safe, dt):
             # Calculate error
@@ -80,19 +80,16 @@ class PIDController:
 setpoint_in = 1050                                                             # Desired airflow in
 setpoint_out = 850                                                             # Desired airflow out
 setpoint_safe = 200                                                            # Desired airflow safety cabinet, min. airflow
-setpoint_safe_high = 950                                                       # Desired airflow safety cabinet, max. airflow
 
 # %% Simulation time settings:
 
 dt = 0.2                                                                       # [s] time-step
 t_start = 0                                                                    # [s] starting time
-t_stop = 12                                                                    # [s] end time
+t_stop = 14                                                                    # [s] end time
 N_sim = int((t_stop - t_start)/dt) + 1                                         # [-] number of time-steps
-t0 = 2.0                                                                       # [s] Delay parameter
-Tf = 2.0                                                                       # [s]
-p0 = 20                                                                        # [Pa] reference pressure
+p0 = 50                                                                        # [Pa] reference pressure
 V = 54                                                                         # [m3] volume of room
-n_P = 0.5                                                                      # [-] pressure exponent
+n_P = 0.7                                                                      # [-] pressure exponent
 
 # %% Pressure constants
 
@@ -104,14 +101,14 @@ P_room = 101.300
 
 # %% Resistance parameters
 
-C_supply = 0.7
-C_exhaust = 0.7
-C_infiltration = 0.7
+C_supply = 0.3
+C_exhaust = 0.3
+C_infiltration = 0.1
 
 # %% Air flow resistance vs. damper stroke parameters
 
-X_supply = 0.7
-X_exhaust = 0.7
+X_supply = 0.9
+X_exhaust = 0.9
 
 # %% Room pressure calculations
 
@@ -128,13 +125,7 @@ y_in = np.zeros(N_sim)
 y_out = np.zeros(N_sim)
 y_safe = np.zeros(N_sim)
 p_array = np.zeros(N_sim)
-p_ref_array = np.zeros(N_sim)
 y_safe_ref = np.zeros(N_sim)
-
-# %% Preallocation of array for time-delay:
-
-Nf = int(round(Tf/dt)) + 1
-delay_array = np.zeros(Nf) + t0
 
 # %% Simulation parameters for airflow
 
@@ -147,9 +138,9 @@ process_values_in = []
 pressure_variable = 101325
 pressure_value = []
 
-pid_in = PIDController(Kp=0.9, Ki=1.3, Kd=0.7, setpoint=setpoint_in)           # PID settings, supply air
-pid_out = PIDController(Kp=0.9, Ki=1.2, Kd=0.75, setpoint=setpoint_out)        # PID settings, exhaust air
-pid_safe = PIDController(Kp=1.1, Ki=0.4, Kd=0.9, setpoint=setpoint_safe)       # PID settings, safety cabinet
+pid_in = PIDController(Kp=1.4, Ki=1.5, Kd=0.6, setpoint=setpoint_in)           # PID settings, supply air
+pid_out = PIDController(Kp=1.1, Ki=1.4, Kd=0.75, setpoint=setpoint_out)        # PID settings, exhaust air
+pid_safe = PIDController(Kp=0.9, Ki=0.3, Kd=0.85, setpoint=setpoint_safe)      # PID settings, safety cabinet
 
 # %% Simulate the process
 
@@ -200,7 +191,7 @@ for t in range(0,N_sim):
 
 # %% Plot results
 
-fig, ax1 = plt.subplots(figsize = (16, 13))
+fig, ax1 = plt.subplots(figsize = (20, 13))
 ax1.set_xlabel('Time [s]')
 ax1.set_ylabel('Airflow [m3/h]', color='blue')
 
