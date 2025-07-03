@@ -77,29 +77,29 @@ class PIDController:
 
 # %% Initialize PID controller
 
-setpoint_in = 1050                                                             # Desired airflow in
+setpoint_in = 1025                                                             # Desired airflow in
 setpoint_out = 850                                                             # Desired airflow out
 setpoint_safe = 950                                                            # Desired airflow safety cabinet, min. airflow
-setpoint_inf = 5
+setpoint_inf = 50
 
 # %% Simulation time settings:
 
-time = np.linspace(0, 12, 100)
-dt = time[1] - time[0]                                                         # [s] time-step
+dt = 0.2                                                                       # [s] time-step
 t_start = 0                                                                    # [s] starting time
 t_stop = 14                                                                    # [s] end time
 N_sim = int((t_stop - t_start)/dt) + 1                                         # [-] number of time-steps
-p0 = 20                                                                        # [Pa] reference pressure
+p0 = -20                                                                       # [Pa] reference pressure
 V = 54                                                                         # [m3] volume of room
 n_P = 0.7                                                                      # [-] pressure exponent
 
 # %% Pressure constants
 
 P_0 = 101.325
-P_supply = 101.425
-P_exhaust = 101.225
-P_infiltration = 101.375
-P_room = P_0 / V * (P_supply + P_infiltration - P_exhaust)
+P_supply = 101.495
+P_exhaust = 101.455
+P_safe = 101.475
+P_infiltration = 101.345
+P_room = P_0 / V * (P_supply + P_infiltration - P_exhaust - P_safe)
 
 # %% Resistance parameters
 
@@ -126,7 +126,7 @@ y_safe_ref = np.zeros(N_sim)
 process_variable_out = 850   
 process_values_out = []
 
-process_variable_safe = 200
+process_variable_safe = 100
 process_values_safe = []
 
 process_variable_in = process_variable_out + process_variable_safe
@@ -135,9 +135,9 @@ process_values_in = []
 pressure_variable = 50
 pressure_value = []
 
-pid_in = PIDController(Kp=0.8, Ki=0.9, Kd=0.8, setpoint=setpoint_in)           # PID settings, supply air
-pid_out = PIDController(Kp=0.5, Ki=0.9, Kd=0.9, setpoint=setpoint_out)        # PID settings, exhaust air
-pid_safe = PIDController(Kp=0.8, Ki=0.7, Kd=0.75, setpoint=setpoint_safe)      # PID settings, safety cabinet
+pid_in = PIDController(Kp=0.75, Ki=0.8, Kd=0.9, setpoint=setpoint_in)          # PID settings, supply air
+pid_out = PIDController(Kp=0.4, Ki=0.6, Kd=0.9, setpoint=setpoint_out)         # PID settings, exhaust air
+pid_safe = PIDController(Kp=0.5, Ki=0.75, Kd=0.1, setpoint=setpoint_safe)      # PID settings, safety cabinet
 
 # %% Simulate the process
 
@@ -146,31 +146,34 @@ for t in range(0,N_sim):
     t_k = t * dt       
     
     if t_k <= 1:
-    
-        setpoint_safe = 200
+        
+        setpoint_safe = 100
     
     else:
         
-        setpoint_safe = 950
+        setpoint_safe = 750
         
     control_output_safe = pid_safe.compute_safe(process_variable_safe, dt)
-    process_variable_safe += control_output_safe * dt - 0.01 * process_variable_safe * dt
+    process_variable_safe += control_output_safe * dt - 0.2 * process_variable_safe * dt
     process_values_safe.append(process_variable_safe)
 
     control_output_out = pid_out.compute_out(process_variable_out, dt)
-    process_variable_out += control_output_out * dt - 0.01 * process_variable_out * dt
+    process_variable_out += control_output_out * dt - 0.2 * process_variable_out * dt
     process_values_out.append(process_variable_out)
       
     control_output_in = pid_in.compute_in(process_variable_in, dt)
-    process_variable_in += control_output_in * dt - 0.01 * process_variable_in * dt
+    process_variable_in += control_output_in * dt - 0.2 * process_variable_in * dt
     process_values_in.append(process_variable_in + process_variable_safe)
     
-    P_supply = (setpoint_in / (C_supply * X_supply))**(n_P) + P_room
-    P_exhaust = P_room - (setpoint_out + setpoint_safe / (C_exhaust * X_exhaust))**(n_P)
-    P_infiltration = (setpoint_inf / (C_infiltration))**(n_P) + P_room
+    P_supply = (process_variable_in / (C_supply * X_supply))**(n_P) + P_room * dt
+    P_exhaust = P_room - (process_variable_out / (C_exhaust * X_exhaust))**(n_P) * dt
+    P_safe = P_room - (process_variable_safe / (C_exhaust * X_exhaust))**(n_P) * dt
+    P_infiltration = (setpoint_inf / (C_infiltration))**(n_P) + P_room * dt
     
-    pressure_output = P_room
-    pressure_variable += pressure_output * dt - 0.9 * pressure_variable * dt
+    P_room = P_0 / V * (P_supply + P_infiltration - P_exhaust - P_safe) * dt
+    
+    pressure_output = - P_room
+    pressure_variable += pressure_output * dt - pressure_variable * dt
     pressure_value.append(pressure_variable)
 
     t_array[t] = t_k
