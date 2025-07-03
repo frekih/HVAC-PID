@@ -74,6 +74,27 @@ class PIDController:
             self.previous_error = error
             
             return output
+        
+    def compute_press(self, pressure_variable, dt):
+            # Calculate error
+            error = self.setpoint - pressure_variable
+            
+            # Proportional term
+            P_press = self.Kp * error
+            
+            # Integral term
+            self.integral += error * dt
+            I_press = self.Ki * self.integral
+            
+            # Derivative term
+            derivative = (error - self.previous_error) / dt
+            D_press = self.Kd * derivative
+            
+            output = P_press + I_press + D_press
+            
+            self.previous_error = error
+            
+            return output
 
 # %% Initialize PID controller
 
@@ -81,6 +102,7 @@ setpoint_in = 1025                                                             #
 setpoint_out = 850                                                             # Desired airflow out
 setpoint_safe = 950                                                            # Desired airflow safety cabinet, min. airflow
 setpoint_inf = 50
+setpoint_press = 0
 
 # %% Simulation time settings:
 
@@ -99,7 +121,7 @@ P_supply = 101.495
 P_exhaust = 101.455
 P_safe = 101.475
 P_infiltration = 101.345
-P_room = P_0 / V * (P_supply + P_infiltration - P_exhaust - P_safe)
+P_room = 20
 
 # %% Resistance parameters
 
@@ -138,6 +160,7 @@ pressure_value = []
 pid_in = PIDController(Kp=0.75, Ki=0.8, Kd=0.9, setpoint=setpoint_in)          # PID settings, supply air
 pid_out = PIDController(Kp=0.4, Ki=0.6, Kd=0.9, setpoint=setpoint_out)         # PID settings, exhaust air
 pid_safe = PIDController(Kp=0.5, Ki=0.75, Kd=0.1, setpoint=setpoint_safe)      # PID settings, safety cabinet
+pid_press = PIDController(Kp=0.001, Ki=1.9, Kd=0.2, setpoint=setpoint_press)
 
 # %% Simulate the process
 
@@ -147,11 +170,11 @@ for t in range(0,N_sim):
     
     if t_k <= 1:
         
-        setpoint_safe = 100
+        setpoint_safe = 200
     
     else:
         
-        setpoint_safe = 750
+        setpoint_safe = 800
         
     control_output_safe = pid_safe.compute_safe(process_variable_safe, dt)
     process_variable_safe += control_output_safe * dt - 0.2 * process_variable_safe * dt
@@ -172,7 +195,7 @@ for t in range(0,N_sim):
     
     P_room = P_0 / V * (P_supply + P_infiltration - P_exhaust - P_safe) * dt
     
-    pressure_output = - P_room
+    pressure_output = pid_press.compute_press(pressure_variable, dt)
     pressure_variable += pressure_output * dt - pressure_variable * dt
     pressure_value.append(pressure_variable)
 
