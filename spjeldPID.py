@@ -98,9 +98,9 @@ class PIDController:
 
 # %% Initialize PID controller
 
-setpoint_in = 1025                                                             # Desired airflow in
+setpoint_in = 1000                                                             # Desired airflow in
 setpoint_out = 850                                                             # Desired airflow out
-setpoint_safe = 950                                                            # Desired airflow safety cabinet, min. airflow
+setpoint_safe = 800                                                            # Desired airflow safety cabinet, min. airflow
 setpoint_inf = 50
 setpoint_press = 0
 
@@ -111,7 +111,7 @@ t_start = 0                                                                    #
 t_stop = 14                                                                    # [s] end time
 N_sim = int((t_stop - t_start)/dt) + 1                                         # [-] number of time-steps
 p0 = -20                                                                       # [Pa] reference pressure
-V = 54                                                                         # [m3] volume of room
+V = 50                                                                         # [m3] volume of room
 n_P = 0.7                                                                      # [-] pressure exponent
 
 # %% Pressure constants
@@ -121,7 +121,7 @@ P_supply = 101.495
 P_exhaust = 101.455
 P_safe = 101.475
 P_infiltration = 101.345
-P_room = 20
+P_room = P_0 / V * (P_supply + P_infiltration - P_exhaust - P_safe)
 
 # %% Resistance parameters
 
@@ -157,23 +157,27 @@ process_values_in = []
 pressure_variable = 50
 pressure_value = []
 
-pid_in = PIDController(Kp=0.75, Ki=0.8, Kd=0.9, setpoint=setpoint_in)          # PID settings, supply air
-pid_out = PIDController(Kp=0.4, Ki=0.6, Kd=0.9, setpoint=setpoint_out)         # PID settings, exhaust air
-pid_safe = PIDController(Kp=0.5, Ki=0.75, Kd=0.1, setpoint=setpoint_safe)      # PID settings, safety cabinet
-pid_press = PIDController(Kp=0.001, Ki=1.9, Kd=0.2, setpoint=setpoint_press)
-
 # %% Simulate the process
 
 for t in range(0,N_sim):
     
+    pid_in = PIDController(Kp=0.75, Ki=0.8, Kd=0.9, setpoint=setpoint_in)          # PID settings, supply air
+    pid_out = PIDController(Kp=0.4, Ki=0.6, Kd=0.9, setpoint=setpoint_out)         # PID settings, exhaust air
+    pid_safe = PIDController(Kp=0.9, Ki=0.9, Kd=0.9, setpoint=setpoint_safe)       # PID settings, safety cabinet
+    pid_press = PIDController(Kp=0.1, Ki=0.4, Kd=0.2, setpoint=setpoint_press)    # Not a PID-regulator, just here to simulate dampened pressure
+    
     t_k = t * dt       
     
     if t_k <= 1:
-        
+
+        setpoint_in = 1000
+        setpoint_out = 850
         setpoint_safe = 200
     
     else:
-        
+
+        setpoint_in = 1400
+        setpoint_out = 1400
         setpoint_safe = 800
         
     control_output_safe = pid_safe.compute_safe(process_variable_safe, dt)
@@ -186,7 +190,7 @@ for t in range(0,N_sim):
       
     control_output_in = pid_in.compute_in(process_variable_in, dt)
     process_variable_in += control_output_in * dt - 0.2 * process_variable_in * dt
-    process_values_in.append(process_variable_in + process_variable_safe)
+    process_values_in.append(process_variable_in)
     
     P_supply = (process_variable_in / (C_supply * X_supply))**(n_P) + P_room * dt
     P_exhaust = P_room - (process_variable_out / (C_exhaust * X_exhaust))**(n_P) * dt
@@ -194,9 +198,10 @@ for t in range(0,N_sim):
     P_infiltration = (setpoint_inf / (C_infiltration))**(n_P) + P_room * dt
     
     P_room = P_0 / V * (P_supply + P_infiltration - P_exhaust - P_safe) * dt
+    pressure_variable = P_room
     
     pressure_output = pid_press.compute_press(pressure_variable, dt)
-    pressure_variable += pressure_output * dt - pressure_variable * dt
+    pressure_variable += pressure_output * dt - 0.1 * pressure_variable * dt
     pressure_value.append(pressure_variable)
 
     t_array[t] = t_k
@@ -211,6 +216,7 @@ for t in range(0,N_sim):
 fig, ax1 = plt.subplots(figsize = (20, 13))
 ax1.set_xlabel('Time [s]')
 ax1.set_ylabel('Airflow [m3/h]', color='blue')
+ax1.set_ylim(0, 2000)
 
 plot_1 = ax1.plot(t_array, y_out, color='gold', label='Process Variable, extract (Airflow [m3/h])')
 plot_2 = ax1.plot(t_array, y_in, color='deepskyblue', label='Process Variable, inflow (Airflow [m3/h])')
