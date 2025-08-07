@@ -9,8 +9,8 @@ class PIDController:
         self.Ki = Ki
         self.Kd = Kd
         self.setpoint = setpoint
-        self.previous_error = 25
-        self.integral = 75
+        self.previous_error = 15
+        self.integral = 5
 
     def compute_safe(self, process_variable_safe, dt):
             # Calculate error
@@ -100,7 +100,7 @@ class PIDController:
 
 setpoint_in = 1000                                                             # Desired airflow in
 setpoint_out = 850                                                             # Desired airflow out
-setpoint_safe = 100                                                            # Desired airflow safety cabinet, min. airflow
+setpoint_safe = 200                                                            # Desired airflow safety cabinet, min. airflow
 setpoint_inf = 50
 setpoint_press = 20
 
@@ -120,7 +120,7 @@ P_0 = 101.325
 P_supply = 101.375
 P_exhaust = 101.275
 P_safe = 101.275
-P_infiltration = 101.345
+P_infiltration = 101.335
 P_room = P_0 / V * (P_supply + P_infiltration - P_exhaust - P_safe)
 
 # %% Resistance parameters
@@ -128,7 +128,7 @@ P_room = P_0 / V * (P_supply + P_infiltration - P_exhaust - P_safe)
 C_supply = 0.5
 C_exhaust = 0.5
 C_infiltration = 0.5
-
+ 
 # %% Air flow resistance vs. damper stroke parameters
 
 X_supply = 0.5
@@ -145,28 +145,26 @@ y_safe_ref = np.zeros(N_sim)
 
 # %% Simulation parameters for airflow
 
-process_variable_out = 850   
+process_variable_out = np.random.choice([835, 850, 865])   
 process_values_out = []
 
-process_variable_safe = 100
+process_variable_safe = np.random.choice([180, 200, 220])
 process_values_safe = []
 
-process_variable_in = 1000
+process_variable_in = np.random.choice([975, 1000, 1025])
 process_values_in = []
 
-pressure_variable = 20
+pressure_variable = np.random.choice([15, 20, 25])
 pressure_value = []
-
-
 
 # %% Simulate the process
 
 for k in range(0,N_sim):
     
-    pid_in = PIDController(Kp=3.1, Ki=2.4, Kd=1.2, setpoint=setpoint_in)          # PID settings, supply air
-    pid_out = PIDController(Kp=3.3, Ki=2.2, Kd=1.15, setpoint=setpoint_out)         # PID settings, exhaust air
-    pid_safe = PIDController(Kp=3.2, Ki=2.5, Kd=1.1, setpoint=setpoint_safe)       # PID settings, BSC
-    pid_press = PIDController(Kp=0.6, Ki=0.8, Kd=0.75, setpoint=setpoint_press)    # Not a PID-regulator, just here to simulate dampened pressure
+    pid_in = PIDController(Kp=2.5, Ki=1.5, Kd=1.35, setpoint=setpoint_in)          # PID settings, supply air
+    pid_out = PIDController(Kp=2.3, Ki=1.2, Kd=1.35, setpoint=setpoint_out)         # PID settings, exhaust air
+    pid_safe = PIDController(Kp=2.3, Ki=2.5, Kd=1.35, setpoint=setpoint_safe)       # PID settings, BSC
+    pid_press = PIDController(Kp=0.1, Ki=0.9, Kd=0.9, setpoint=setpoint_press)    # Not a PID-regulator, just here to simulate dampened pressure
     
     t_k = k * dt       
     
@@ -185,7 +183,7 @@ for k in range(0,N_sim):
         setpoint_press = -10
         
     control_output_safe = pid_safe.compute_safe(process_variable_safe, dt)
-    process_variable_safe += control_output_safe * dt - 0.1 * process_variable_safe * dt
+    process_variable_safe += np.complex128(control_output_safe * dt - 0.1 * process_variable_safe * dt)
     process_values_safe.append(process_variable_safe)
 
     control_output_out = pid_out.compute_out(process_variable_out, dt)
@@ -205,7 +203,7 @@ for k in range(0,N_sim):
     pressure_variable = P_room
     
     pressure_output = pid_press.compute_press(pressure_variable, dt)
-    pressure_variable += pressure_output * dt - 0.01 * pressure_variable * dt
+    pressure_variable += pressure_output * dt - 0.1 * pressure_variable * dt
     pressure_value.append(pressure_variable)
 
     t_array[k] = t_k
@@ -234,9 +232,11 @@ ax2.set_ylabel('Pressure [Pa]', color='green')
 plot_5 = ax2.hlines(y=p0, xmin=t_start, xmax=t_stop, color='seagreen', label='Reference pressure [Pa]')
 plot_6 = ax2.plot(t_array, p_array, color='darkgreen', label='Room pressure [Pa]')
 ax2.tick_params(axis ='y', labelcolor = 'green')
-ax2.set_ylim(-60, 50)
+# ax2.set_ylim(-60, 50)
 
 fig.legend()
 plt.title('PID Controller Simulation')
 plt.grid()
 plt.show()
+
+# %% End
